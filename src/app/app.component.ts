@@ -1,148 +1,73 @@
-import { Component, OnInit, inject } from '@angular/core';
+import { Component, OnInit, model } from '@angular/core';
 import { RouterOutlet } from '@angular/router';
 import {
-  GenerateContentRequest,
   GoogleGenerativeAI,
   HarmBlockThreshold,
   HarmCategory,
   ModelParams,
-  RequestOptions,
 } from '@google/generative-ai';
 import { environment } from '../environments/environment.development';
-import { FileConversionService } from './file-conversion.service';
+import { MatInputModule } from '@angular/material/input';
+import { MatButtonModule } from '@angular/material/button';
+import { FormsModule } from '@angular/forms';
+import { MatFormFieldModule } from '@angular/material/form-field';
 
 @Component({
   selector: 'app-root',
   standalone: true,
-  imports: [RouterOutlet],
+  imports: [
+    RouterOutlet,
+    MatFormFieldModule,
+    MatInputModule,
+    MatButtonModule,
+    FormsModule,
+  ],
   templateUrl: './app.component.html',
   styleUrl: './app.component.scss',
 })
-export class AppComponent implements OnInit {
-  private readonly fileConversionService = inject(FileConversionService);
-
-  ngOnInit(): void {
-    // 試したい方を uncomment
-    // this.TestGeminiPro();
-    // this.TestGeminiProVisionImages();
-    // this.TestGeminiProChat();
-  }
-
-  async TestGeminiPro() {
-    const genAI = new GoogleGenerativeAI(environment.API_KEY);
-    const generationConfig: ModelParams = {
-      model: 'gemini-pro',
-      safetySettings: [
-        {
-          category: HarmCategory.HARM_CATEGORY_HARASSMENT,
-          threshold: HarmBlockThreshold.BLOCK_LOW_AND_ABOVE,
-        },
-      ],
-      generationConfig: {
-        temperature: 0.9,
-        topP: 1,
-        topK: 32,
-        maxOutputTokens: 100,
+export class AppComponent {
+  genAI = new GoogleGenerativeAI(environment.API_KEY);
+  generationConfig: ModelParams = {
+    model: 'gemini-pro',
+    safetySettings: [
+      {
+        category: HarmCategory.HARM_CATEGORY_HARASSMENT,
+        threshold: HarmBlockThreshold.BLOCK_LOW_AND_ABOVE,
       },
-    };
+    ],
+    generationConfig: {
+      temperature: 0.9,
+      topP: 1,
+      topK: 32,
+      maxOutputTokens: 100,
+    },
+  };
 
-    const model = genAI.getGenerativeModel(generationConfig);
+  geminiModel = this.genAI.getGenerativeModel(this.generationConfig);
 
-    const prompt = 'What is the largest number with a name ?';
-    const result = await model.generateContent(prompt);
+  chat = this.geminiModel.startChat({
+    generationConfig: {
+      temperature: 0.9,
+      topP: 1,
+      topK: 32,
+      maxOutputTokens: 100,
+    },
+  });
+
+  messages: string[] = [];
+  message = model('');
+
+  async sendMessage(): Promise<void> {
+    const userInputText = this.message();
+    if (userInputText === '') {
+      return;
+    }
+
+    this.messages.push(`USER: ${userInputText}`);
+
+    const result = await this.chat.sendMessage(userInputText);
     const response = await result.response;
-    console.log(response.text());
-  }
-
-  async TestGeminiProVisionImages() {
-    const genAI = new GoogleGenerativeAI(environment.API_KEY);
-    const generationConfig: ModelParams = {
-      model: 'gemini-pro-vision',
-      safetySettings: [
-        {
-          category: HarmCategory.HARM_CATEGORY_HARASSMENT,
-          threshold: HarmBlockThreshold.BLOCK_LOW_AND_ABOVE,
-        },
-      ],
-      generationConfig: {
-        temperature: 0.9,
-        topP: 1,
-        topK: 32,
-        maxOutputTokens: 100,
-      },
-    };
-
-    const model = genAI.getGenerativeModel(generationConfig);
-
-    try {
-      let imageBase64 = await this.fileConversionService.convertToBase64(
-        'assets/angular_gradient.png'
-      );
-
-      if (typeof imageBase64 !== 'string') {
-        throw new Error('Image conversion to Base64 failed.');
-      }
-
-      const prompt: GenerateContentRequest = {
-        contents: [
-          {
-            role: 'USER',
-            parts: [
-              {
-                inlineData: {
-                  mimeType: 'image/png',
-                  data: imageBase64,
-                },
-              },
-              { text: 'What logo is this?' },
-            ],
-          },
-        ],
-      };
-
-      const result = await model.generateContent(prompt);
-      const response = await result.response;
-      console.log(response.text());
-    } catch (e) {}
-  }
-
-  async TestGeminiProChat() {
-    const genAI = new GoogleGenerativeAI(environment.API_KEY);
-    const generationConfig: ModelParams = {
-      model: 'gemini-pro',
-      safetySettings: [
-        {
-          category: HarmCategory.HARM_CATEGORY_HARASSMENT,
-          threshold: HarmBlockThreshold.BLOCK_LOW_AND_ABOVE,
-        },
-      ],
-    };
-
-    const model = genAI.getGenerativeModel(generationConfig);
-
-    const chat = model.startChat({
-      history: [
-        {
-          role: 'user',
-          parts: [{ text: 'Hi there!' }],
-        },
-        {
-          role: 'model',
-          parts: [{ text: 'Great to meet you. What would you like to know?' }],
-        },
-      ],
-      generationConfig: {
-        temperature: 0.9,
-        topP: 1,
-        topK: 32,
-        maxOutputTokens: 100,
-      },
-    });
-
-    const prompt = 'What is the largest number with a name? Brief answer.';
-    const result = await chat.sendMessage(prompt);
-    const response = await result.response;
-    console.log(response.candidates?.[0].content.parts[0].text);
-    console.log(response.text());
+    this.messages.push(`Gemini: ${response.text()}`);
+    this.message.set('');
   }
 }

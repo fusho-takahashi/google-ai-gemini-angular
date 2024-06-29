@@ -1,0 +1,13 @@
+<div class="chat-container">
+  <section class="chat-history">
+    @for( m of messages; track m) {
+    <p>{{ m }}</p>
+    }
+  </section>
+  <section class="input-container">
+    <mat-form-field class="user-input" [subscriptSizing]="'dynamic'">
+      <input matInput [(ngModel)]="message" placeholder="メッセージを入力" />
+    </mat-form-field>
+    <button mat-raised-button (click)="sendMessage()">送信</button>
+  </section>
+</div>
